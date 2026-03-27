@@ -1167,6 +1167,47 @@ public class KotlinSpringServerCodegen extends AbstractKotlinCodegen
     }
 
     @Override
+    @SuppressWarnings("unchecked")
+    public Map<String, ModelsMap> postProcessAllModels(Map<String, ModelsMap> objs) {
+        objs = super.postProcessAllModels(objs);
+
+        // Build classname -> CodegenModel map for quick lookup
+        Map<String, CodegenModel> allModelsMap = new HashMap<>();
+        for (ModelsMap modelsAttrs : objs.values()) {
+            for (ModelMap mo : modelsAttrs.getModels()) {
+                CodegenModel cm = mo.getModel();
+                allModelsMap.put(cm.classname, cm);
+            }
+        }
+
+        // For each oneOf interface with a discriminator, mark the discriminator property
+        // as inherited in each subtype so templates emit the required `override` keyword
+        for (CodegenModel cm : allModelsMap.values()) {
+            if (Boolean.TRUE.equals(cm.vendorExtensions.get("x-is-one-of-interface"))
+                    && cm.discriminator != null) {
+                String discrimBaseName = cm.discriminator.getPropertyBaseName();
+                for (String childName : cm.oneOf) {
+                    // cm.oneOf entries are type references like "Bird" - strip generic wrappers if any
+                    String simpleName = childName.replaceAll("[^A-Za-z0-9_]", "");
+                    CodegenModel child = allModelsMap.get(simpleName);
+                    if (child != null) {
+                        markPropertyAsInherited(child, discrimBaseName);
+                    }
+                }
+            }
+        }
+
+        return objs;
+    }
+
+    private void markPropertyAsInherited(CodegenModel model, String baseName) {
+        java.util.stream.Stream.of(model.vars, model.requiredVars, model.optionalVars, model.allVars)
+                .flatMap(List::stream)
+                .filter(p -> baseName.equals(p.baseName))
+                .forEach(p -> p.isInherited = true);
+    }
+
+    @Override
     public ModelsMap postProcessModelsEnum(ModelsMap objs) {
         objs = super.postProcessModelsEnum(objs);
 
