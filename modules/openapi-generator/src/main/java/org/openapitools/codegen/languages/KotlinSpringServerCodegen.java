@@ -210,6 +210,9 @@ public class KotlinSpringServerCodegen extends AbstractKotlinCodegen
 
         reservedWords.addAll(VARIABLE_RESERVED_WORDS);
 
+        // Enable oneOf interface generation (mirrors SpringCodegen behavior)
+        useOneOfInterfaces = true;
+
         outputFolder = "generated-code/kotlin-spring";
         embeddedTemplateDir = templateDir = "kotlin-spring";
 
@@ -1147,6 +1150,19 @@ public class KotlinSpringServerCodegen extends AbstractKotlinCodegen
 
         if (model.discriminator != null && additionalProperties.containsKey("jackson")) {
             model.imports.addAll(Arrays.asList("JsonSubTypes", "JsonTypeInfo", "JsonIgnoreProperties"));
+        }
+    }
+
+    @Override
+    public void addImportsToOneOfInterface(List<Map<String, String>> imports) {
+        if (additionalProperties.containsKey("jackson")) {
+            for (String i : Arrays.asList("JsonSubTypes", "JsonTypeInfo", "JsonIgnoreProperties")) {
+                Map<String, String> oneImport = new HashMap<>();
+                oneImport.put("import", importMapping.get(i));
+                if (!imports.contains(oneImport)) {
+                    imports.add(oneImport);
+                }
+            }
         }
     }
 

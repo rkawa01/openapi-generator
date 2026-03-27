@@ -1054,7 +1054,7 @@ public class KotlinSpringServerCodegenTest {
         Path path = Paths.get(outputPath + "/src/main/kotlin/org/openapitools/model/Pet.kt");
         assertFileContains(
                 path,
-                ") : java.io.Serializable {",
+                "java.io.Serializable",
                 "private const val serialVersionUID: kotlin.Long = 1"
         );
     }
@@ -5008,6 +5008,74 @@ public class KotlinSpringServerCodegenTest {
         assertFileNotContains(pomPath, "com.fasterxml.jackson.dataformat");
         assertFileNotContains(pomPath, "com.fasterxml.jackson.module");
         assertFileNotContains(pomPath, "jackson-datatype-jsr310");
+    }
+
+    @Test(description = "oneOf with discriminator generates thin interface with only discriminator property")
+    public void testOneOfWithDiscriminatorGeneratesThinInterface() throws IOException {
+        File output = Files.createTempDirectory("test").toFile().getCanonicalFile();
+        output.deleteOnExit();
+        String outputPath = output.getAbsolutePath().replace('\\', '/');
+
+        OpenAPI openAPI = new OpenAPIParser()
+                .readLocation("src/test/resources/3_0/kotlin/polymorphism-oneof-discriminator.yaml", null, new ParseOptions()).getOpenAPI();
+
+        KotlinSpringServerCodegen codegen = new KotlinSpringServerCodegen();
+        codegen.setOutputDir(output.getAbsolutePath());
+
+        ClientOptInput input = new ClientOptInput();
+        input.openAPI(openAPI);
+        input.config(codegen);
+
+        DefaultGenerator generator = new DefaultGenerator();
+        generator.setGenerateMetadata(false);
+        generator.setGeneratorPropertyDefault(CodegenConstants.MODELS, "true");
+        generator.setGeneratorPropertyDefault(CodegenConstants.MODEL_TESTS, "false");
+        generator.setGeneratorPropertyDefault(CodegenConstants.MODEL_DOCS, "false");
+        generator.opts(input).generate();
+
+        // The oneOf parent "Animal" should be a thin interface with only the discriminator property
+        Path animalModel = Paths.get(outputPath + "/src/main/kotlin/org/openapitools/model/Animal.kt");
+        assertFileContains(animalModel, "interface Animal");
+        assertFileContains(animalModel, "@JsonTypeInfo");
+        assertFileContains(animalModel, "@JsonSubTypes");
+        // Should NOT contain subtype-specific properties (fat interface bug)
+        assertFileNotContains(animalModel, "propertyA");
+        assertFileNotContains(animalModel, "propertyB");
+        assertFileNotContains(animalModel, "sameNameProperty");
+    }
+
+    @Test(description = "oneOf with discriminator generates subtypes that implement the interface")
+    public void testOneOfSubtypesImplementInterface() throws IOException {
+        File output = Files.createTempDirectory("test").toFile().getCanonicalFile();
+        output.deleteOnExit();
+        String outputPath = output.getAbsolutePath().replace('\\', '/');
+
+        OpenAPI openAPI = new OpenAPIParser()
+                .readLocation("src/test/resources/3_0/kotlin/polymorphism-oneof-discriminator.yaml", null, new ParseOptions()).getOpenAPI();
+
+        KotlinSpringServerCodegen codegen = new KotlinSpringServerCodegen();
+        codegen.setOutputDir(output.getAbsolutePath());
+
+        ClientOptInput input = new ClientOptInput();
+        input.openAPI(openAPI);
+        input.config(codegen);
+
+        DefaultGenerator generator = new DefaultGenerator();
+        generator.setGenerateMetadata(false);
+        generator.setGeneratorPropertyDefault(CodegenConstants.MODELS, "true");
+        generator.setGeneratorPropertyDefault(CodegenConstants.MODEL_TESTS, "false");
+        generator.setGeneratorPropertyDefault(CodegenConstants.MODEL_DOCS, "false");
+        generator.opts(input).generate();
+
+        // Bird should be a data class implementing Animal
+        Path birdModel = Paths.get(outputPath + "/src/main/kotlin/org/openapitools/model/Bird.kt");
+        assertFileContains(birdModel, "data class Bird");
+        assertFileContains(birdModel, "Animal");
+
+        // Robobird should be a data class implementing Animal
+        Path robobirdModel = Paths.get(outputPath + "/src/main/kotlin/org/openapitools/model/Robobird.kt");
+        assertFileContains(robobirdModel, "data class Robobird");
+        assertFileContains(robobirdModel, "Animal");
     }
 }
 
