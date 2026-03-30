@@ -5230,6 +5230,34 @@ public class KotlinSpringServerCodegenTest {
                 "data class Dog"
         );
     }
+
+    @Test(description = "oneOf with $ref enum discriminator resolves property type correctly")
+    public void testOneOfRefEnumDiscriminatorResolvesType() throws IOException {
+        File output = Files.createTempDirectory("test").toFile().getCanonicalFile();
+        output.deleteOnExit();
+
+        new DefaultGenerator().opts(new ClientOptInput()
+                        .openAPI(new OpenAPIParser().readLocation("src/test/resources/3_0/kotlin/polymorphism-oneof-enum-discriminator.yaml", null, new ParseOptions()).getOpenAPI())
+                        .config(new KotlinSpringServerCodegen() {{ setOutputDir(output.getAbsolutePath()); }}))
+                .generate();
+
+        String outputPath = output.getAbsolutePath() + "/src/main/kotlin/org/openapitools/model";
+
+        // Vehicle's discriminator should use the $ref enum type, not hardcoded kotlin.String
+        assertFileContains(Paths.get(outputPath + "/Vehicle.kt"),
+                "sealed interface Vehicle",
+                "val vehicleType: VehicleType"
+        );
+        // Children should have the enum type with override
+        assertFileContains(Paths.get(outputPath + "/Car.kt"),
+                "data class Car",
+                "override val vehicleType: VehicleType"
+        );
+        assertFileContains(Paths.get(outputPath + "/Truck.kt"),
+                "data class Truck",
+                "override val vehicleType: VehicleType"
+        );
+    }
 }
 
 
