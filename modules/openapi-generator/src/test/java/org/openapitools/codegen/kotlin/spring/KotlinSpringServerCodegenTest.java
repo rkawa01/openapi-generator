@@ -797,6 +797,11 @@ public class KotlinSpringServerCodegenTest {
                 Paths.get(outputPath + "/src/main/kotlin/org/openapitools/model/Animal.kt"),
                 "@get:Schema(example = \"null\", requiredMode = Schema.RequiredMode.REQUIRED, description = \"\")"
         );
+        // allOf+discriminator parents should be sealed interfaces
+        assertFileContains(
+                Paths.get(outputPath + "/src/main/kotlin/org/openapitools/model/Animal.kt"),
+                "sealed interface Animal"
+        );
     }
 
     @Test(description = "use get Annotation use-site target on kotlin interface attributes (swagger1)")
@@ -5085,6 +5090,145 @@ public class KotlinSpringServerCodegenTest {
         );
         assertFileContains(Paths.get(outputPath + "/Cat.kt"), "data class Cat", "Pet");
         assertFileContains(Paths.get(outputPath + "/Dog.kt"), "data class Dog", "Pet");
+    }
+
+    @Test(description = "allOf with discriminator generates sealed interface with Jackson annotations")
+    public void testAllOfWithDiscriminatorGeneratesSealedInterface() throws IOException {
+        File output = Files.createTempDirectory("test").toFile().getCanonicalFile();
+        output.deleteOnExit();
+
+        new DefaultGenerator().opts(new ClientOptInput()
+                        .openAPI(new OpenAPIParser().readLocation("src/test/resources/3_1/polymorphism-allof-and-discriminator.yaml", null, new ParseOptions()).getOpenAPI())
+                        .config(new KotlinSpringServerCodegen() {{ setOutputDir(output.getAbsolutePath()); }}))
+                .generate();
+
+        String outputPath = output.getAbsolutePath() + "/src/main/kotlin/org/openapitools/model";
+
+        assertFileContains(Paths.get(outputPath + "/Pet.kt"),
+                "sealed interface Pet",
+                "@JsonTypeInfo", "property = \"petType\"",
+                "@JsonSubTypes",
+                "Cat::class", "Dog::class",
+                "val name", "val petType"
+        );
+    }
+
+    @Test(description = "allOf subtypes implement sealed interface with override properties")
+    public void testAllOfSubtypesImplementSealedInterface() throws IOException {
+        File output = Files.createTempDirectory("test").toFile().getCanonicalFile();
+        output.deleteOnExit();
+
+        new DefaultGenerator().opts(new ClientOptInput()
+                        .openAPI(new OpenAPIParser().readLocation("src/test/resources/3_1/polymorphism-allof-and-discriminator.yaml", null, new ParseOptions()).getOpenAPI())
+                        .config(new KotlinSpringServerCodegen() {{ setOutputDir(output.getAbsolutePath()); }}))
+                .generate();
+
+        String outputPath = output.getAbsolutePath() + "/src/main/kotlin/org/openapitools/model";
+
+        assertFileContains(Paths.get(outputPath + "/Cat.kt"),
+                "data class Cat",
+                ") : Pet {",
+                "override val name",
+                "override val petType"
+        );
+        assertFileContains(Paths.get(outputPath + "/Dog.kt"),
+                "data class Dog",
+                ") : Pet {",
+                "override val name",
+                "override val petType"
+        );
+    }
+
+    @Test(description = "allOf with discriminator using OpenAPI 3.0 spec generates sealed interface")
+    public void testAllOf30SpecWithDiscriminator() throws IOException {
+        File output = Files.createTempDirectory("test").toFile().getCanonicalFile();
+        output.deleteOnExit();
+
+        new DefaultGenerator().opts(new ClientOptInput()
+                        .openAPI(TestUtils.parseSpec("src/test/resources/3_0/kotlin/issue3596-use-correct-get-annotation-target.yaml"))
+                        .config(new KotlinSpringServerCodegen() {{ setOutputDir(output.getAbsolutePath()); }}))
+                .generate();
+
+        String outputPath = output.getAbsolutePath() + "/src/main/kotlin/org/openapitools/model";
+
+        assertFileContains(Paths.get(outputPath + "/Animal.kt"),
+                "sealed interface Animal",
+                "@JsonTypeInfo",
+                "@JsonSubTypes"
+        );
+        assertFileContains(Paths.get(outputPath + "/Pet.kt"),
+                "data class Pet",
+                ") : Animal {"
+        );
+    }
+
+    @Test(description = "allOf with discriminator using OpenAPI 2.0 (Swagger) spec generates sealed interface")
+    public void testAllOf20SpecWithDiscriminator() throws IOException {
+        File output = Files.createTempDirectory("test").toFile().getCanonicalFile();
+        output.deleteOnExit();
+
+        new DefaultGenerator().opts(new ClientOptInput()
+                        .openAPI(TestUtils.parseSpec("src/test/resources/2_0/discriminatorTest.json"))
+                        .config(new KotlinSpringServerCodegen() {{ setOutputDir(output.getAbsolutePath()); }}))
+                .generate();
+
+        String outputPath = output.getAbsolutePath() + "/src/main/kotlin/org/openapitools/model";
+
+        // Parent should be a sealed interface with Jackson annotations
+        assertFileContains(Paths.get(outputPath + "/Animal.kt"),
+                "sealed interface Animal",
+                "@JsonTypeInfo",
+                "@JsonSubTypes",
+                "Cat::class", "Dog::class",
+                "val className"
+        );
+        // Children should implement the sealed interface with override
+        assertFileContains(Paths.get(outputPath + "/Dog.kt"),
+                "data class Dog",
+                ") : Animal {",
+                "override val className"
+        );
+        assertFileContains(Paths.get(outputPath + "/Cat.kt"),
+                "data class Cat",
+                ") : Animal {",
+                "override val className"
+        );
+    }
+
+    @Test(description = "allOf child with multiple allOf parents only inherits from first parent (single-inheritance limitation)")
+    public void testAllOfMultipleParentsUsesFirstParent() throws IOException {
+        File output = Files.createTempDirectory("test").toFile().getCanonicalFile();
+        output.deleteOnExit();
+
+        new DefaultGenerator().opts(new ClientOptInput()
+                        .openAPI(new OpenAPIParser().readLocation("src/test/resources/3_1/polymorphism-allof-multiple-inheritance.yaml", null, new ParseOptions()).getOpenAPI())
+                        .config(new KotlinSpringServerCodegen() {{ setOutputDir(output.getAbsolutePath()); }}))
+                .generate();
+
+        String outputPath = output.getAbsolutePath() + "/src/main/kotlin/org/openapitools/model";
+
+        // Both parents should be sealed interfaces
+        assertFileContains(Paths.get(outputPath + "/Pet.kt"),
+                "sealed interface Pet",
+                "@JsonTypeInfo", "@JsonSubTypes"
+        );
+        assertFileContains(Paths.get(outputPath + "/Companion.kt"),
+                "sealed interface Companion",
+                "@JsonTypeInfo", "@JsonSubTypes"
+        );
+        // Cat extends only Pet — single allOf parent, works correctly
+        assertFileContains(Paths.get(outputPath + "/Cat.kt"),
+                "data class Cat",
+                ") : Pet {",
+                "override val name",
+                "override val petType"
+        );
+        // Dog references two allOf parents: Pet and Companion.
+        // DefaultCodegen.parent is a single String, so only the first parent is tracked.
+        // Dog inherits from Pet but NOT Companion — this is a known core codegen limitation.
+        assertFileContains(Paths.get(outputPath + "/Dog.kt"),
+                "data class Dog"
+        );
     }
 }
 

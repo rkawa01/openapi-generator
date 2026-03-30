@@ -1,0 +1,53 @@
+# Tests multiple allOf inheritance: a child type extends two discriminator parents
+openapi: 3.1.0
+info:
+  title: Multiple allOf inheritance
+  version: "1.0"
+paths: {}
+components:
+  schemas:
+    Pet:
+      type: object
+      discriminator:
+        propertyName: petType
+      properties:
+        name:
+          type: string
+        petType:
+          type: string
+      required:
+        - name
+        - petType
+    Companion:
+      type: object
+      discriminator:
+        propertyName: companionType
+      properties:
+        humanName:
+          type: string
+        companionType:
+          type: string
+      required:
+        - humanName
+        - companionType
+    Dog:
+      description: A dog that is both a Pet and a Companion
+      allOf:
+        - $ref: '#/components/schemas/Pet'
+        - $ref: '#/components/schemas/Companion'
+        - type: object
+          properties:
+            breed:
+              type: string
+          required:
+            - breed
+    Cat:
+      description: A cat that is only a Pet
+      allOf:
+        - $ref: '#/components/schemas/Pet'
+        - type: object
+          properties:
+            indoor:
+              type: boolean
+          required:
+            - indoor

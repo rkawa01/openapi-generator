@@ -41,6 +41,7 @@ jobs:
         sample:
           # server
           - samples/server/others/kotlin-spring/oneOf
+          - samples/server/others/kotlin-spring/allOf
           - samples/server/others/kotlin-server/polymorphism-allof-and-discriminator
           - samples/server/others/kotlin-server/polymorphism-and-discriminator-disabled-jackson-fix
           - samples/server/others/kotlin-server/polymorphism-and-discriminator
