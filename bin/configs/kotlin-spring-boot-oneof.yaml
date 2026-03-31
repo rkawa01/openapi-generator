@@ -1,5 +1,5 @@
 generatorName: kotlin-spring
-outputDir: samples/server/others/kotlin-spring/oneOf
+outputDir: samples/server/others/kotlin-springboot/oneOf
 library: spring-boot
 inputSpec: modules/openapi-generator/src/test/resources/3_0/kotlin/polymorphism-oneof-discriminator.yaml
 templateDir: modules/openapi-generator/src/main/resources/kotlin-spring
