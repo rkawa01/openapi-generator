@@ -5088,8 +5088,16 @@ public class KotlinSpringServerCodegenTest {
                 "@JsonSubTypes",
                 "Cat::class", "Dog::class"
         );
-        assertFileContains(Paths.get(outputPath + "/Cat.kt"), "data class Cat", "Pet");
-        assertFileContains(Paths.get(outputPath + "/Dog.kt"), "data class Dog", "Pet");
+        assertFileContains(Paths.get(outputPath + "/Cat.kt"),
+                "data class Cat",
+                ") : Pet {",
+                "override val petType"
+        );
+        assertFileContains(Paths.get(outputPath + "/Dog.kt"),
+                "data class Dog",
+                ") : Pet {",
+                "override val petType"
+        );
     }
 
     @Test(description = "allOf with discriminator generates sealed interface with Jackson annotations")
