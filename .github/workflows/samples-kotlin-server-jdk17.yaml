@@ -40,10 +40,10 @@ jobs:
       matrix:
         sample:
           # server
-          - samples/server/others/kotlin-springboot/oneOf
-          - samples/server/others/kotlin-springboot/oneOf-3.1
+          - samples/server/others/kotlin-springboot/oneOf-discriminator
+          - samples/server/others/kotlin-springboot/oneOf-discriminator-const
           - samples/server/others/kotlin-springboot/oneOf-enum-discriminator
-          - samples/server/others/kotlin-springboot/allOf
+          - samples/server/others/kotlin-springboot/allOf-discriminator
           - samples/server/others/kotlin-server/polymorphism-allof-and-discriminator
           - samples/server/others/kotlin-server/polymorphism-and-discriminator-disabled-jackson-fix
           - samples/server/others/kotlin-server/polymorphism-and-discriminator

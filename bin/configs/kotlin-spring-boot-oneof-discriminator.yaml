@@ -1,7 +1,7 @@
 generatorName: kotlin-spring
-outputDir: samples/server/others/kotlin-springboot/allOf
+outputDir: samples/server/others/kotlin-springboot/oneOf-discriminator
 library: spring-boot
-inputSpec: modules/openapi-generator/src/test/resources/3_1/polymorphism-allof-and-discriminator.yaml
+inputSpec: modules/openapi-generator/src/test/resources/3_0/kotlin/polymorphism-oneof-discriminator.yaml
 templateDir: modules/openapi-generator/src/main/resources/kotlin-spring
 additionalProperties:
   documentationProvider: none
