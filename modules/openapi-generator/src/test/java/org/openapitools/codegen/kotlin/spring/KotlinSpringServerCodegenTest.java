@@ -1034,7 +1034,7 @@ public class KotlinSpringServerCodegenTest {
     }
 
     @Test
-    public void generateSerializableModel() throws Exception {
+    public void generateSerializableModelImplementsOneOfInterfaces() throws Exception {
         File output = Files.createTempDirectory("test").toFile().getCanonicalFile();
         output.deleteOnExit();
         String outputPath = output.getAbsolutePath().replace('\\', '/');
@@ -1059,7 +1059,7 @@ public class KotlinSpringServerCodegenTest {
         Path path = Paths.get(outputPath + "/src/main/kotlin/org/openapitools/model/Pet.kt");
         assertFileContains(
                 path,
-                ") : java.io.Serializable, UserOrPet, UserOrPetOrArrayString {",  // Pet implements Serializable + oneOf interfaces
+                ") : java.io.Serializable, UserOrPet, UserOrPetOrArrayString {",
                 "private const val serialVersionUID: kotlin.Long = 1"
         );
     }
