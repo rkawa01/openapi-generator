@@ -5195,8 +5195,8 @@ public class KotlinSpringServerCodegenTest {
         );
     }
 
-    @Test(description = "allOf child with multiple allOf parents only inherits from first parent (single-inheritance limitation)")
-    public void testAllOfMultipleParentsUsesFirstParent() throws IOException {
+    @Test(description = "allOf child with multiple allOf parents inlines all fields but extends neither parent")
+    public void testAllOfMultipleParentsInlinesFieldsExtendsNeither() throws IOException {
         File output = Files.createTempDirectory("test").toFile().getCanonicalFile();
         output.deleteOnExit();
 
@@ -5223,11 +5223,20 @@ public class KotlinSpringServerCodegenTest {
                 "override val name",
                 "override val petType"
         );
-        // Dog references two allOf parents: Pet and Companion.
-        // DefaultCodegen.parent is a single String, so only the first parent is tracked.
-        // Dog inherits from Pet but NOT Companion — this is a known core codegen limitation.
+        // Dog references two allOf parents (Pet and Companion).
+        // All fields from both parents are inlined but Dog does not extend either interface
+        // because DefaultCodegen.parent is a single String. Same behavior as java-spring.
         assertFileContains(Paths.get(outputPath + "/Dog.kt"),
-                "data class Dog"
+                "data class Dog",
+                "val name",
+                "val petType",
+                "val humanName",
+                "val companionType",
+                "val breed"
+        );
+        assertFileNotContains(Paths.get(outputPath + "/Dog.kt"),
+                ") :",
+                "override val"
         );
     }
 
