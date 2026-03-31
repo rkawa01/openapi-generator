@@ -12,6 +12,6 @@
 {{/vendorExtensions.x-class-extra-annotation}}
 sealed interface {{classname}}{{#vendorExtensions.x-kotlin-implements}}{{#-first}} : {{{.}}}{{/-first}}{{^-first}}, {{{.}}}{{/-first}}{{/vendorExtensions.x-kotlin-implements}} {
 {{#discriminator}}
-    val {{propertyBaseName}}: {{{propertyType}}}
+    val {{propertyName}}: {{{propertyType}}}
 {{/discriminator}}
 }

@@ -30,6 +30,6 @@ import javax.validation.Valid
       JsonSubTypes.Type(value = Robobird::class, name = "ANOTHER_ROBOBIRD")
 )
 sealed interface AnotherAnimal {
-    val another_discriminator: kotlin.String
+    val anotherDiscriminator: kotlin.String
 }
 

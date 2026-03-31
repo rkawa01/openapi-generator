@@ -5067,7 +5067,13 @@ public class KotlinSpringServerCodegenTest {
                 "override val anotherDiscriminator: kotlin.String"
         );
         // AnotherAnimal should also be a sealed interface
-        assertFileContains(Paths.get(outputPath + "/AnotherAnimal.kt"), "sealed interface AnotherAnimal");
+        assertFileContains(Paths.get(outputPath + "/AnotherAnimal.kt"),
+                "sealed interface AnotherAnimal",
+                "val anotherDiscriminator: kotlin.String"
+        );
+        assertFileNotContains(Paths.get(outputPath + "/AnotherAnimal.kt"),
+                "val another_discriminator"
+        );
     }
 
     @Test(description = "oneOf with discriminator using OpenAPI 3.1 spec generates sealed interface")
