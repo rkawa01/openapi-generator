@@ -202,7 +202,8 @@ public class KotlinSpringServerCodegen extends AbstractKotlinCodegen
                 )
                 .includeSchemaSupportFeatures(
                         SchemaSupportFeature.Polymorphism,
-                        SchemaSupportFeature.oneOf
+                        SchemaSupportFeature.oneOf,
+                        SchemaSupportFeature.allOf
                 )
                 .includeParameterFeatures(
                         ParameterFeature.Cookie
