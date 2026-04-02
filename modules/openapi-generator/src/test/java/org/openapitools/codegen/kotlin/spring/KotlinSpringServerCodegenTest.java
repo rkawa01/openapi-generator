@@ -1029,7 +1029,7 @@ public class KotlinSpringServerCodegenTest {
     }
 
     @Test
-    public void generateSerializableModel() throws Exception {
+    public void generateSerializableModelImplementsOneOfInterfaces() throws Exception {
         File output = Files.createTempDirectory("test").toFile().getCanonicalFile();
         output.deleteOnExit();
         String outputPath = output.getAbsolutePath().replace('\\', '/');
@@ -1054,7 +1054,7 @@ public class KotlinSpringServerCodegenTest {
         Path path = Paths.get(outputPath + "/src/main/kotlin/org/openapitools/model/Pet.kt");
         assertFileContains(
                 path,
-                ") : java.io.Serializable {",
+                ") : java.io.Serializable, UserOrPet, UserOrPetOrArrayString {",
                 "private const val serialVersionUID: kotlin.Long = 1"
         );
     }
@@ -5008,6 +5008,127 @@ public class KotlinSpringServerCodegenTest {
         assertFileNotContains(pomPath, "com.fasterxml.jackson.dataformat");
         assertFileNotContains(pomPath, "com.fasterxml.jackson.module");
         assertFileNotContains(pomPath, "jackson-datatype-jsr310");
+    }
+
+    @Test(description = "oneOf with discriminator generates thin sealed interface with Jackson annotations")
+    public void testOneOfWithDiscriminatorGeneratesThinInterface() throws IOException {
+        File output = Files.createTempDirectory("test").toFile().getCanonicalFile();
+        output.deleteOnExit();
+
+        new DefaultGenerator().opts(new ClientOptInput()
+                        .openAPI(new OpenAPIParser().readLocation("src/test/resources/3_0/kotlin/polymorphism-oneof-discriminator.yaml", null, new ParseOptions()).getOpenAPI())
+                        .config(new KotlinSpringServerCodegen() {{ setOutputDir(output.getAbsolutePath()); }}))
+                .generate();
+
+        String outputPath = output.getAbsolutePath() + "/src/main/kotlin/org/openapitools/model";
+
+        // Animal should be a thin sealed interface with Jackson annotations and only the discriminator property
+        assertFileContains(Paths.get(outputPath + "/Animal.kt"),
+                "sealed interface Animal",
+                "@JsonTypeInfo", "property = \"discriminator\"", "visible = true",
+                "@JsonSubTypes",
+                "Bird::class", "BIRD",
+                "Robobird::class", "ROBOBIRD",
+                "@JsonIgnoreProperties",
+                "val discriminator: kotlin.String"
+        );
+        // Should NOT contain subtype-specific properties (fat interface bug)
+        assertFileNotContains(Paths.get(outputPath + "/Animal.kt"), "propertyA", "propertyB", "sameNameProperty");
+    }
+
+    @Test(description = "oneOf with discriminator generates subtypes that implement the sealed interface")
+    public void testOneOfSubtypesImplementInterface() throws IOException {
+        File output = Files.createTempDirectory("test").toFile().getCanonicalFile();
+        output.deleteOnExit();
+
+        new DefaultGenerator().opts(new ClientOptInput()
+                        .openAPI(new OpenAPIParser().readLocation("src/test/resources/3_0/kotlin/polymorphism-oneof-discriminator.yaml", null, new ParseOptions()).getOpenAPI())
+                        .config(new KotlinSpringServerCodegen() {{ setOutputDir(output.getAbsolutePath()); }}))
+                .generate();
+
+        String outputPath = output.getAbsolutePath() + "/src/main/kotlin/org/openapitools/model";
+
+        // Bird and Robobird implement both oneOf hierarchies; discriminator props must have override keyword
+        assertFileContains(Paths.get(outputPath + "/Bird.kt"),
+                "data class Bird",
+                ") : Animal, AnotherAnimal {",
+                "override val discriminator: kotlin.String",
+                "override val anotherDiscriminator: kotlin.String"
+        );
+        assertFileContains(Paths.get(outputPath + "/Robobird.kt"),
+                "data class Robobird",
+                ") : Animal, AnotherAnimal {",
+                "override val discriminator: kotlin.String",
+                "override val anotherDiscriminator: kotlin.String"
+        );
+        // AnotherAnimal should also be a sealed interface
+        assertFileContains(Paths.get(outputPath + "/AnotherAnimal.kt"),
+                "sealed interface AnotherAnimal",
+                "val anotherDiscriminator: kotlin.String"
+        );
+        assertFileNotContains(Paths.get(outputPath + "/AnotherAnimal.kt"),
+                "val another_discriminator"
+        );
+    }
+
+    @Test(description = "oneOf with discriminator using OpenAPI 3.1 spec generates sealed interface")
+    public void testOneOf31SpecWithDiscriminator() throws IOException {
+        File output = Files.createTempDirectory("test").toFile().getCanonicalFile();
+        output.deleteOnExit();
+
+        new DefaultGenerator().opts(new ClientOptInput()
+                        .openAPI(new OpenAPIParser().readLocation("src/test/resources/3_1/polymorphism-and-discriminator.yaml", null, new ParseOptions()).getOpenAPI())
+                        .config(new KotlinSpringServerCodegen() {{ setOutputDir(output.getAbsolutePath()); }}))
+                .generate();
+
+        String outputPath = output.getAbsolutePath() + "/src/main/kotlin/org/openapitools/model";
+
+        assertFileContains(Paths.get(outputPath + "/Pet.kt"),
+                "sealed interface Pet",
+                "@JsonTypeInfo", "property = \"petType\"", "visible = true",
+                "@JsonSubTypes",
+                "Cat::class", "Dog::class"
+        );
+        assertFileContains(Paths.get(outputPath + "/Cat.kt"),
+                "data class Cat",
+                ") : Pet {",
+                "override val petType: kotlin.String"
+        );
+        assertFileContains(Paths.get(outputPath + "/Dog.kt"),
+                "data class Dog",
+                ") : Pet {",
+                "override val petType: kotlin.String"
+        );
+        assertFileNotContains(Paths.get(outputPath + "/Cat.kt"), "kotlin.Any");
+        assertFileNotContains(Paths.get(outputPath + "/Dog.kt"), "kotlin.Any");
+    }
+
+    @Test(description = "oneOf with $ref enum discriminator resolves property type correctly")
+    public void testOneOfRefEnumDiscriminatorResolvesType() throws IOException {
+        File output = Files.createTempDirectory("test").toFile().getCanonicalFile();
+        output.deleteOnExit();
+
+        new DefaultGenerator().opts(new ClientOptInput()
+                        .openAPI(new OpenAPIParser().readLocation("src/test/resources/3_0/kotlin/polymorphism-oneof-enum-discriminator.yaml", null, new ParseOptions()).getOpenAPI())
+                        .config(new KotlinSpringServerCodegen() {{ setOutputDir(output.getAbsolutePath()); }}))
+                .generate();
+
+        String outputPath = output.getAbsolutePath() + "/src/main/kotlin/org/openapitools/model";
+
+        // Vehicle's discriminator should use the $ref enum type, not hardcoded kotlin.String
+        assertFileContains(Paths.get(outputPath + "/Vehicle.kt"),
+                "sealed interface Vehicle",
+                "val vehicleType: VehicleType"
+        );
+        // Children should have the enum type with override
+        assertFileContains(Paths.get(outputPath + "/Car.kt"),
+                "data class Car",
+                "override val vehicleType: VehicleType"
+        );
+        assertFileContains(Paths.get(outputPath + "/Truck.kt"),
+                "data class Truck",
+                "override val vehicleType: VehicleType"
+        );
     }
 }
 
