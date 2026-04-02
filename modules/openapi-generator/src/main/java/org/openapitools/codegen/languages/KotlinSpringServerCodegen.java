@@ -201,7 +201,8 @@ public class KotlinSpringServerCodegen extends AbstractKotlinCodegen
                         GlobalFeature.ParameterStyling
                 )
                 .includeSchemaSupportFeatures(
-                        SchemaSupportFeature.Polymorphism
+                        SchemaSupportFeature.Polymorphism,
+                        SchemaSupportFeature.oneOf
                 )
                 .includeParameterFeatures(
                         ParameterFeature.Cookie
@@ -209,6 +210,9 @@ public class KotlinSpringServerCodegen extends AbstractKotlinCodegen
         );
 
         reservedWords.addAll(VARIABLE_RESERVED_WORDS);
+
+        // Enable oneOf interface generation (mirrors SpringCodegen behavior)
+        useOneOfInterfaces = true;
 
         outputFolder = "generated-code/kotlin-spring";
         embeddedTemplateDir = templateDir = "kotlin-spring";
@@ -1147,6 +1151,80 @@ public class KotlinSpringServerCodegen extends AbstractKotlinCodegen
 
         if (model.discriminator != null && additionalProperties.containsKey("jackson")) {
             model.imports.addAll(Arrays.asList("JsonSubTypes", "JsonTypeInfo", "JsonIgnoreProperties"));
+        }
+    }
+
+    @Override
+    public void addImportsToOneOfInterface(List<Map<String, String>> imports) {
+        if (additionalProperties.containsKey("jackson")) {
+            for (String i : Arrays.asList("JsonSubTypes", "JsonTypeInfo", "JsonIgnoreProperties")) {
+                Map<String, String> oneImport = new HashMap<>();
+                oneImport.put("import", importMapping.get(i));
+                if (!imports.contains(oneImport)) {
+                    imports.add(oneImport);
+                }
+            }
+        }
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public Map<String, ModelsMap> postProcessAllModels(Map<String, ModelsMap> objs) {
+        objs = super.postProcessAllModels(objs);
+
+        // Build classname -> CodegenModel map for quick lookup
+        Map<String, CodegenModel> allModelsMap = new HashMap<>();
+        for (ModelsMap modelsAttrs : objs.values()) {
+            for (ModelMap mo : modelsAttrs.getModels()) {
+                CodegenModel cm = mo.getModel();
+                allModelsMap.put(cm.classname, cm);
+            }
+        }
+
+        // For each oneOf interface with a discriminator, mark the discriminator property
+        // as inherited in each subtype so templates emit the required `override` keyword
+        for (CodegenModel cm : allModelsMap.values()) {
+            if (Boolean.TRUE.equals(cm.vendorExtensions.get("x-is-one-of-interface"))
+                    && cm.discriminator != null) {
+                String discrimBaseName = cm.discriminator.getPropertyBaseName();
+                String discrimType = cm.discriminator.getPropertyType();
+                for (String childName : cm.oneOf) {
+                    // cm.oneOf entries are type references like "Bird" - strip generic wrappers if any
+                    String simpleName = childName.replaceAll("[^A-Za-z0-9_]", "");
+                    CodegenModel child = allModelsMap.get(simpleName);
+                    if (child != null) {
+                        markPropertyAsInherited(child, discrimBaseName, discrimType);
+                    }
+                }
+            }
+        }
+
+        return objs;
+    }
+
+    private void markPropertyAsInherited(CodegenModel model, String baseName, String dataType) {
+        java.util.stream.Stream.of(model.vars, model.requiredVars, model.optionalVars, model.allVars)
+                .flatMap(List::stream)
+                .filter(p -> baseName.equals(p.baseName))
+                .forEach(p -> {
+                    p.isInherited = true;
+                    if (dataType != null) {
+                        p.dataType = dataType;
+                        p.datatypeWithEnum = dataType;
+                        // Discriminator properties must match the parent interface type (non-null, required)
+                        p.isNullable = false;
+                        p.required = true;
+                    }
+                });
+        // Move discriminator property from optionalVars to requiredVars if needed
+        if (dataType != null) {
+            model.optionalVars.stream()
+                    .filter(p -> baseName.equals(p.baseName))
+                    .findFirst()
+                    .ifPresent(p -> {
+                        model.optionalVars.remove(p);
+                        model.requiredVars.add(p);
+                    });
         }
     }
 
